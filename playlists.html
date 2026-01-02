@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>My Playlists</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        height: 100vh;
+    }
+    #sidebar {
+        width: 250px;
+        background: #f0f0f0;
+        padding: 20px;
+        box-sizing: border-box;
+        border-right: 1px solid #ccc;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    #sidebar h2 {
+        margin: 0 0 20px 0;
+        font-size: 18px;
+    }
+    #sidebar button {
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+    #playlistList {
+        flex-grow: 1;
+        overflow-y: auto;
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .playlistItem {
+        padding: 5px;
+        cursor: pointer;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 5px;
+    }
+    .playlistItem.active {
+        background: #d0d0ff;
+        font-weight: bold;
+    }
+    #contentMain {
+        flex-grow: 1;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        box-sizing: border-box;
+    }
+    #searchFilter {
+        width: 200px;
+        padding: 5px;
+    }
+    #songsList {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .songCard {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 1px solid #ccc;
+        padding: 5px 10px;
+        border-radius: 4px;
+    }
+    .rating span {
+        cursor: pointer;
+        color: gold;
+    }
+    button.deleteSong, button.deletePlaylist {
+        background: #ff4d4d;
+        color: white;
+        border: none;
+        padding: 2px 5px;
+        border-radius: 3px;
+        cursor: pointer;
+    }
+    #newPlaylistModal {
+        display: none;
+        position: fixed;
+        top:0; left:0; width:100%; height:100%;
+        background: rgba(0,0,0,0.7);
+        justify-content: center;
+        align-items: center;
+    }
+    #modalContent {
+        background: #fff;
+        padding: 20px;
+        border-radius: 8px;
+    }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+    <button onclick="goToSearch()">🔍 Back to Search</button>
+    <h2>My Library</h2>
+    <button onclick="openNewPlaylistModal()">+ New Playlist</button>
+    <div id="playlistList"></div>
+</div>
+
+<div id="contentMain">
+    <div>
+        <input type="text" id="searchFilter" placeholder="Search song" oninput="renderSongs()">
+        <button onclick="toggleSort()">Sort A–Z / Rating</button>
+    </div>
+    <div id="songsList">Select a playlist.</div>
+</div>
+
+<div id="newPlaylistModal">
+    <div id="modalContent">
+        <h3>Create New Playlist</h3>
+        <input type="text" id="newPlaylistName" placeholder="Playlist name">
+        <button onclick="createPlaylist()">Create</button>
+        <button onclick="closeNewPlaylistModal()">Cancel</button>
+    </div>
+</div>
+
+<script>
+const userStr = sessionStorage.getItem("currentUser");
+if (!userStr) window.location.href = "login.html";
+
+const currentUser = JSON.parse(userStr);
+if (!currentUser.playlists) currentUser.playlists = {};
+
+let currentPlaylist = null;
+let sortByRating = false;
+
+function saveUser() {
+    sessionStorage.setItem("currentUser", JSON.stringify(currentUser));
+}
+
+function renderPlaylists() {
+    const list = document.getElementById("playlistList");
+    list.innerHTML = "";
+    Object.keys(currentUser.playlists).forEach(name => {
+        const div = document.createElement("div");
+        div.className = "playlistItem" + (currentPlaylist === name ? " active" : "");
+        div.onclick = () => selectPlaylist(name);
+        div.textContent = name;
+
+        const del = document.createElement("button");
+        del.textContent = "🗑";
+        del.className = "deletePlaylist";
+        del.onclick = e => {
+            e.stopPropagation();
+            if (confirm("Delete playlist?")) {
+                delete currentUser.playlists[name];
+                saveUser();
+                currentPlaylist = null;
+                renderPlaylists();
+                renderSongs();
+            }
+        };
+
+        div.appendChild(del);
+        list.appendChild(div);
+    });
+}
+
+function renderSongs() {
+    const container = document.getElementById("songsList");
+    if (!currentPlaylist) {
+        container.textContent = "Select a playlist.";
+        return;
+    }
+
+    let songs = [...currentUser.playlists[currentPlaylist]];
+    const filter = document.getElementById("searchFilter").value.toLowerCase();
+    if (filter) songs = songs.filter(s => s.title.toLowerCase().includes(filter));
+
+    if (sortByRating) songs.sort((a,b) => (b.rating||0)-(a.rating||0));
+    else songs.sort((a,b) => a.title.localeCompare(b.title));
+
+    container.innerHTML = "";
+    songs.forEach((song, idx) => {
+        const div = document.createElement("div");
+        div.className = "songCard";
+
+        const title = document.createElement("span");
+        title.textContent = song.title;
+        div.appendChild(title);
+
+        const rating = document.createElement("div");
+        rating.className = "rating";
+        for (let i=1;i<=5;i++){
+            const star = document.createElement("span");
+            star.textContent = i <= (song.rating||0) ? "★" : "☆";
+            star.onclick = () => {
+                song.rating = i;
+                saveUser();
+                renderSongs();
+            };
+            rating.appendChild(star);
+        }
+        div.appendChild(rating);
+
+        const del = document.createElement("button");
+        del.textContent = "🗑";
+        del.className = "deleteSong";
+        del.onclick = () => {
+            if (confirm("Delete song?")) {
+                currentUser.playlists[currentPlaylist].splice(idx,1);
+                saveUser();
+                renderSongs();
+            }
+        };
+
+        div.appendChild(del);
+        container.appendChild(div);
+    });
+}
+
+function selectPlaylist(name) {
+    currentPlaylist = name;
+    renderPlaylists();
+    renderSongs();
+}
+
+function toggleSort() {
+    sortByRating = !sortByRating;
+    renderSongs();
+}
+
+function openNewPlaylistModal() {
+    document.getElementById("newPlaylistModal").style.display = "flex";
+}
+
+function closeNewPlaylistModal() {
+    document.getElementById("newPlaylistModal").style.display = "none";
+}
+
+function createPlaylist() {
+    const name = document.getElementById("newPlaylistName").value.trim();
+    if (!name) return alert("Enter playlist name");
+    if (currentUser.playlists[name]) return alert("Playlist already exists");
+    currentUser.playlists[name] = [];
+    saveUser();
+    currentPlaylist = name;
+    closeNewPlaylistModal();
+    renderPlaylists();
+    renderSongs();
+}
+
+function goToSearch() {
+    window.location.href = "search.html";
+}
+
+window.onload = () => {
+    const first = Object.keys(currentUser.playlists)[0];
+    if (first) currentPlaylist = first;
+    renderPlaylists();
+    renderSongs();
+};
+
+window.onfocus = () => {
+    const updated = JSON.parse(sessionStorage.getItem("currentUser"));
+    if (updated) {
+        Object.assign(currentUser, updated);
+        renderPlaylists();
+        renderSongs();
+    }
+};
+</script>
+
+</body>
+</html>

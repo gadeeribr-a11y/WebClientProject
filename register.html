@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Register</title>
+    <style>
+        body {
+            font-family: Arial;
+            margin: 40px;
+        }
+        input {
+            display: block;
+            margin-bottom: 10px;
+        }
+        button {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Register</h1>
+
+<form id="registerForm">
+
+    <label>Username:</label>
+    <input type="text" id="username">
+
+    <label>Password:</label>
+    <input type="password" id="password">
+
+    <label>Confirm Password:</label>
+    <input type="password" id="confirmPassword">
+
+    <label>First Name:</label>
+    <input type="text" id="firstName">
+
+    <label>Image URL:</label>
+    <input type="text" id="imageUrl">
+
+    <button type="submit">Register</button>
+
+    <p id="errorMsg" style="color:red;"></p>
+
+</form>
+
+<script>
+document.getElementById("registerForm").addEventListener("submit", register);
+
+function register(event) {
+    event.preventDefault();
+
+    const username = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value;
+    const confirmPassword = document.getElementById("confirmPassword").value;
+    const firstName = document.getElementById("firstName").value.trim();
+    const imageUrl = document.getElementById("imageUrl").value.trim();
+    const errorMsg = document.getElementById("errorMsg");
+
+    errorMsg.textContent = "";
+
+    if (!username || !password || !confirmPassword || !firstName || !imageUrl) {
+        errorMsg.textContent = "Please fill in all fields";
+        return;
+    }
+
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{6,}$/;
+    if (!passwordRegex.test(password)) {
+        errorMsg.textContent =
+            "Password must contain at least 6 characters, letters, numbers and a special character";
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        errorMsg.textContent = "Password confirmation failed";
+        return;
+    }
+
+    fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            username,
+            password,
+            firstName,
+            imageUrl
+        })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error();
+        return res.json();
+    })
+    .then(() => {
+        alert("Registration successful");
+        window.location.href = "login.html";
+    })
+    .catch(() => {
+        errorMsg.textContent = "Username already exists";
+    });
+}
+</script>
+
+</body>
+</html>
