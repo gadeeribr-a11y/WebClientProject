@@ -76,27 +76,18 @@ function register(event) {
         return;
     }
 
-    fetch("/api/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            username,
-            password,
-            firstName,
-            imageUrl
-        })
-    })
-    .then(res => {
-        if (!res.ok) throw new Error();
-        return res.json();
-    })
-    .then(() => {
-        alert("Registration successful");
-        window.location.href = "login.html";
-    })
-    .catch(() => {
-        errorMsg.textContent = "Username already exists";
-    });
+    let users = JSON.parse(localStorage.getItem("users")) || [];
+
+if (users.find(u => u.username === username)) {
+    errorMsg.textContent = "Username already exists";
+    return;
+}
+
+users.push({ username, password, firstName, imageUrl });
+localStorage.setItem("users", JSON.stringify(users));
+
+alert("Registration successful");
+window.location.href = "login.html";
 }
 </script>
 
